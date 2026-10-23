@@ -162,23 +162,15 @@ it.describe('selector generator', () => {
 
   it('should handle first non-unique data-testid', async ({ page }) => {
     await page.setContent(`
-      <div data-testid=a mark=1>
-        Text
-      </div>
-      <div data-testid=a>
-        Text
-      </div>`);
+      <div data-testid=a mark=1></div>
+      <div data-testid=a></div>`);
     expect(await generate(page, 'div[mark="1"]')).toBe('internal:testid=[data-testid=\"a\"s] >> nth=0');
   });
 
   it('should handle second non-unique data-testid', async ({ page }) => {
     await page.setContent(`
-      <div data-testid=a>
-        Text
-      </div>
-      <div data-testid=a mark=1>
-        Text
-      </div>`);
+      <div data-testid=a></div>
+      <div data-testid=a mark=1></div>`);
     expect(await generate(page, 'div[mark="1"]')).toBe(`internal:testid=[data-testid=\"a\"s] >> nth=1`);
   });
 
@@ -314,8 +306,12 @@ it.describe('selector generator', () => {
   });
 
   it.describe('should prioritize attributes correctly', () => {
-    it('role', async ({ page }) => {
+    it('name over role without name', async ({ page }) => {
       await page.setContent(`<input name="foobar" type="text"/>`);
+      expect(await generate(page, 'input')).toBe('input[name="foobar"]');
+    });
+    it('role without name', async ({ page }) => {
+      await page.setContent(`<input type="text"/>`);
       expect(await generate(page, 'input')).toBe('internal:role=textbox');
     });
     it('placeholder', async ({ page }) => {
@@ -460,8 +456,44 @@ it.describe('selector generator', () => {
   });
 
   it('should accept valid data-test-id for candidate consideration', async ({ page }) => {
-    await page.setContent(`<button data-test-id="testId" id="buttonId"></button>`);
+    await page.setContent(`<button data-test-id="testId"></button>`);
     expect(await generate(page, 'button')).toBe('[data-test-id="testId"]');
+  });
+
+  it.describe('should prefer role with name, then id and name, then test ids', () => {
+    it('role with name over test ids', async ({ page }) => {
+      await page.setContent(`
+        <button data-testid="search--submit">Найти</button>
+        <button data-test-id="client--continue">Продолжить</button>
+      `);
+      expect(await generate(page, '[data-testid]')).toBe('internal:role=button[name="Найти"i]');
+      expect(await generate(page, '[data-test-id]')).toBe('internal:role=button[name="Продолжить"i]');
+    });
+
+    it('role with name over id and name', async ({ page }) => {
+      await page.setContent(`<input id="smsCode" name="smsCode" data-test-id="sms--code" aria-label="Код подтверждения">`);
+      expect(await generate(page, 'input')).toBe('internal:role=textbox[name="Код подтверждения"i]');
+    });
+
+    it('text over test id', async ({ page }) => {
+      await page.setContent(`<div data-test-id="success--text">Клиент успешно актуализирован</div>`);
+      expect(await generate(page, 'div')).toBe('internal:text="Клиент успешно актуализирован"i');
+    });
+
+    it('id over test id', async ({ page }) => {
+      await page.setContent(`<button id="wizard-submit" data-testid="wizard--submit"></button>`);
+      expect(await generate(page, 'button')).toBe('#wizard-submit');
+    });
+
+    it('name over test id', async ({ page }) => {
+      await page.setContent(`<input name="snils" data-test-id="client--snils">`);
+      expect(await generate(page, 'input')).toBe('input[name="snils"]');
+    });
+
+    it('test id when role with name is not unique', async ({ page }) => {
+      await page.setContent(`<button>Сохранить</button><button data-test-id="footer--save">Сохранить</button>`);
+      expect(await generate(page, '[data-test-id]')).toBe('[data-test-id="footer--save"]');
+    });
   });
 
   it('should generate label selector', async ({ page }) => {

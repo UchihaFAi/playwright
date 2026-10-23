@@ -504,7 +504,7 @@ await page.Locator("#textarea").FillAsync(\"Hello'\\"\`\\nWorld\");`);
   test('should --test-id-attribute', async ({ openRecorder }) => {
     const { page, recorder } = await openRecorder({ testIdAttributeName: 'my-test-id' });
 
-    await recorder.setContentAndWait(`<div my-test-id="foo">Hello</div>`);
+    await recorder.setContentAndWait(`<div my-test-id="foo">Hello</div><div>Hello</div>`);
     await page.click('[my-test-id=foo]');
     const sources = await recorder.waitForOutput('JavaScript', `page.getByTestId`);
 

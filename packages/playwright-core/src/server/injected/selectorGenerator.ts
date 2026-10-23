@@ -33,9 +33,6 @@ const cacheDisallowText = new Map<Element, SelectorToken[] | null>();
 const kTextScoreRange = 10;
 const kExactPenalty = kTextScoreRange / 2;
 
-const kTestIdScore = 1;        // testIdAttributeName
-const kOtherTestIdScore = 2;   // other data-test* attributes
-
 const kIframeByAttributeScore = 10;
 
 const kBeginPenalizedScore = 50;
@@ -54,7 +51,13 @@ const kTextScoreExact = kTextScore + kExactPenalty;
 const kTitleScoreExact = kTitleScore + kExactPenalty;
 const kEndPenalizedScore = 300;
 
-const kCSSIdScore = 500;
+// Role with accessible name and the other user-facing locators above always win.
+// Stable id/name attributes come next, test ids are only used after them.
+const kCSSIdScore = 310;
+const kCSSNameScore = 320;
+const kTestIdScore = 330;        // testIdAttributeName
+const kOtherTestIdScore = 340;   // other data-test* attributes
+
 const kRoleWithoutNameScore = 510;
 const kCSSInputTypeNameScore = 520;
 const kCSSTagNameScore = 530;
@@ -286,7 +289,7 @@ function buildNoTextCandidates(injectedScript: InjectedScript, element: Element,
     candidates.push({ engine: 'internal:role', selector: ariaRole, score: kRoleWithoutNameScore });
 
   if (element.getAttribute('name') && ['BUTTON', 'FORM', 'FIELDSET', 'FRAME', 'IFRAME', 'INPUT', 'KEYGEN', 'OBJECT', 'OUTPUT', 'SELECT', 'TEXTAREA', 'MAP', 'META', 'PARAM'].includes(element.nodeName))
-    candidates.push({ engine: 'css', selector: `${cssEscape(element.nodeName.toLowerCase())}[name=${quoteCSSAttributeValue(element.getAttribute('name')!)}]`, score: kCSSInputTypeNameScore });
+    candidates.push({ engine: 'css', selector: `${cssEscape(element.nodeName.toLowerCase())}[name=${quoteCSSAttributeValue(element.getAttribute('name')!)}]`, score: kCSSNameScore });
 
   if (['INPUT', 'TEXTAREA'].includes(element.nodeName) && element.getAttribute('type') !== 'hidden') {
     if (element.getAttribute('type'))

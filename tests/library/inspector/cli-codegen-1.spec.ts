@@ -384,7 +384,7 @@ await page.Locator("#input").FillAsync(\"てすと\");`);
   test('should press', async ({ openRecorder }) => {
     const { page, recorder } = await openRecorder();
 
-    await recorder.setContentAndWait(`<input name="name" onkeypress="console.log('press')"></input>`);
+    await recorder.setContentAndWait(`<input onkeypress="console.log('press')"></input>`);
 
     const locator = await recorder.focusElement('input');
     expect(locator).toBe(`getByRole('textbox')`);
@@ -464,7 +464,7 @@ await page.GetByRole(AriaRole.Textbox).PressAsync("Shift+Enter");`);
   test('should record ArrowDown', async ({ openRecorder }) => {
     const { page, recorder } = await openRecorder();
 
-    await recorder.setContentAndWait(`<input name="name" onkeydown="console.log('press:' + event.key)"></input>`);
+    await recorder.setContentAndWait(`<input onkeydown="console.log('press:' + event.key)"></input>`);
 
     const locator = await recorder.focusElement('input');
     expect(locator).toBe(`getByRole('textbox')`);
@@ -486,7 +486,7 @@ await page.GetByRole(AriaRole.Textbox).PressAsync("Shift+Enter");`);
   test('should emit single keyup on ArrowDown', async ({ openRecorder }) => {
     const { page, recorder } = await openRecorder();
 
-    await recorder.setContentAndWait(`<input name="name" onkeydown="console.log('down:' + event.key)" onkeyup="console.log('up:' + event.key)"></input>`);
+    await recorder.setContentAndWait(`<input onkeydown="console.log('down:' + event.key)" onkeyup="console.log('up:' + event.key)"></input>`);
 
     const locator = await recorder.focusElement('input');
     expect(locator).toBe(`getByRole('textbox')`);

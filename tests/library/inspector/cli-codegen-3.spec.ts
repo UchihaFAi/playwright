@@ -488,7 +488,7 @@ await page.Locator("#frame1").ContentFrame.GetByRole(AriaRole.Button, new() { Na
   test('should generate getByTestId', async ({ openRecorder }) => {
     const { page, recorder } = await openRecorder();
 
-    await recorder.setContentAndWait(`<div data-testid=testid onclick="console.log('click')">Submit</div>`);
+    await recorder.setContentAndWait(`<div data-testid=testid onclick="console.log('click')">Submit</div><div>Submit</div>`);
 
     const locator = await recorder.hoverOverElement('div');
     expect(locator).toBe(`getByTestId('testid')`);
