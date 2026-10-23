@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { sanitizeDeviceOptions, toClickOptionsForSourceCode, toKeyboardModifiers, toSignalMap } from './language';
+import { generateComment, sanitizeDeviceOptions, toClickOptionsForSourceCode, toKeyboardModifiers, toSignalMap } from './language';
 import { asLocator, escapeWithQuotes } from '../../utils';
 import { deviceDescriptors } from '../deviceDescriptors';
 
@@ -63,6 +63,9 @@ export class CSharpLanguageGenerator implements LanguageGenerator {
       pageAlias = pageAlias.replace('page', 'Page');
     const formatter = new CSharpFormatter(this._mode === 'library' ? 0 : 8);
 
+    if (action.name === 'comment')
+      return generateComment(action.text, '//', this._mode === 'library' ? 0 : 8);
+
     if (action.name === 'openPage') {
       formatter.add(`var ${pageAlias} = await context.NewPageAsync();`);
       if (action.url && action.url !== 'about:blank' && action.url !== 'chrome://newtab/')
@@ -107,6 +110,7 @@ export class CSharpLanguageGenerator implements LanguageGenerator {
     const action = actionInContext.action;
     switch (action.name) {
       case 'openPage':
+      case 'comment':
         throw Error('Not reached');
       case 'closePage':
         return `await ${subject}.CloseAsync();`;

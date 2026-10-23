@@ -61,6 +61,11 @@ export const Recorder: React.FC<RecorderProps> = ({
     return emptySource();
   }, [sources, fileId]);
 
+  const [commentDialogOpen, setCommentDialogOpen] = React.useState(false);
+  const [commentText, setCommentText] = React.useState('');
+  const commentDialogRef = React.useRef<HTMLDialogElement>(null);
+  const commentInputRef = React.useRef<HTMLTextAreaElement>(null);
+
   const [locator, setLocator] = React.useState('');
   window.playwrightElementPicked = (elementInfo: ElementInfo, userGesture?: boolean) => {
     const language = source.language;
@@ -87,6 +92,8 @@ export const Recorder: React.FC<RecorderProps> = ({
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (commentDialogOpen)
+        return;
       switch (event.key) {
         case 'F8':
           event.preventDefault();
@@ -104,7 +111,28 @@ export const Recorder: React.FC<RecorderProps> = ({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [paused]);
+  }, [paused, commentDialogOpen]);
+
+  React.useEffect(() => {
+    if (commentDialogOpen) {
+      commentDialogRef.current?.showModal();
+      commentInputRef.current?.focus();
+    } else {
+      commentDialogRef.current?.close();
+    }
+  }, [commentDialogOpen]);
+
+  const closeCommentDialog = React.useCallback(() => {
+    setCommentDialogOpen(false);
+    setCommentText('');
+  }, []);
+
+  const submitComment = React.useCallback(() => {
+    const text = commentText.trim();
+    if (text)
+      window.dispatch({ event: 'addComment', params: { text } }).catch(() => { });
+    closeCommentDialog();
+  }, [commentText, closeCommentDialog]);
 
   const onEditorChange = React.useCallback((selector: string) => {
     if (mode === 'none' || mode === 'inspecting')
@@ -164,6 +192,9 @@ export const Recorder: React.FC<RecorderProps> = ({
       <ToolbarButton icon='gist' title='Assert snapshot' toggled={mode === 'assertingSnapshot'} disabled={mode === 'none' || mode === 'standby' || mode === 'inspecting'} onClick={() => {
         window.dispatch({ event: 'setMode', params: { mode: mode === 'assertingSnapshot' ? 'recording' : 'assertingSnapshot' } });
       }}></ToolbarButton>
+      <ToolbarButton icon='comment-add' title='Add comment' toggled={commentDialogOpen} onClick={() => {
+        setCommentDialogOpen(true);
+      }}></ToolbarButton>
       <ToolbarSeparator />
       <ToolbarButton icon='files' title='Copy' disabled={!source || !source.text} onClick={() => {
         copy(source.text);
@@ -214,5 +245,28 @@ export const Recorder: React.FC<RecorderProps> = ({
         setSelectedTab={setSelectedTab}
       />}
     />
+    <dialog ref={commentDialogRef} className='comment-dialog' onClose={closeCommentDialog}>
+      <div className='title'><span className='codicon codicon-comment-add'></span>Add comment</div>
+      <div className='body'>
+        <textarea
+          ref={commentInputRef}
+          className='comment-dialog-input'
+          placeholder='Comment text'
+          rows={3}
+          value={commentText}
+          onChange={event => setCommentText(event.target.value)}
+          onKeyDown={event => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              submitComment();
+            }
+          }}
+        />
+        <div>
+          <button className='button' disabled={!commentText.trim()} onClick={submitComment}>Add</button>
+          <button className='button secondary' onClick={closeCommentDialog}>Cancel</button>
+        </div>
+      </div>
+    </dialog>
   </div>;
 };

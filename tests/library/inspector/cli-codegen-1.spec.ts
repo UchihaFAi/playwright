@@ -1019,4 +1019,47 @@ await page.GetByRole(AriaRole.Button, new() { Name = "Submit" }).ClickAsync();`)
     expect(sources.get('JavaScript').text).toContain(`getByRole('button', { name: 'Bar' }).click()`);
     expect(sources.get('JavaScript').text).not.toContain(`getByRole('button', { name: 'Foo' })`);
   });
+
+  test('should add a comment', async ({ openRecorder }) => {
+    const { recorder } = await openRecorder();
+
+    await recorder.setContentAndWait(`<button onclick="console.log('click')">Submit</button>`);
+
+    await recorder.recorderPage.getByRole('button', { name: 'Add comment' }).click();
+    await recorder.recorderPage.getByPlaceholder('Comment text').fill('first line\nsecond line');
+    await recorder.recorderPage.getByRole('button', { name: 'Add', exact: true }).click();
+
+    const sources = await recorder.waitForOutput('JavaScript', 'first line');
+
+    expect.soft(sources.get('JavaScript')!.text).toContain(`
+  // first line
+  // second line`);
+
+    expect.soft(sources.get('Java')!.text).toContain(`
+      // first line
+      // second line`);
+
+    expect.soft(sources.get('Python')!.text).toContain(`
+    # first line
+    # second line`);
+
+    expect.soft(sources.get('C#')!.text).toContain(`
+// first line
+// second line`);
+  });
+
+  test('should add a comment when recording is disabled', async ({ openRecorder }) => {
+    const { recorder } = await openRecorder();
+
+    await recorder.setContentAndWait(`<button onclick="console.log('click')">Submit</button>`);
+
+    await recorder.recorderPage.getByRole('button', { name: 'Record' }).click();
+    await recorder.recorderPage.getByRole('button', { name: 'Add comment' }).click();
+    await recorder.recorderPage.getByPlaceholder('Comment text').fill('not recording');
+    await recorder.recorderPage.getByRole('button', { name: 'Add', exact: true }).click();
+
+    const sources = await recorder.waitForOutput('JavaScript', 'not recording');
+    expect(sources.get('JavaScript')!.text).toContain(`
+  // not recording`);
+  });
 });

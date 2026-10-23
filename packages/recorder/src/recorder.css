@@ -57,3 +57,38 @@ body.dark-mode .recorder .toolbar-button.toggled.circle-large-filled {
 .recorder .selector-input {
   flex: auto;
 }
+
+dialog.comment-dialog {
+  width: 320px;
+  margin: auto;
+}
+
+dialog.comment-dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+dialog.comment-dialog .body {
+  text-align: left;
+}
+
+.comment-dialog-input {
+  width: 100%;
+  padding: 4px;
+  resize: vertical;
+  color: var(--vscode-input-foreground);
+  background-color: var(--vscode-input-background);
+  border: 1px solid var(--vscode-panel-border);
+  outline: none;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  line-height: 18px;
+}
+
+.comment-dialog-input:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+dialog.comment-dialog .button[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}

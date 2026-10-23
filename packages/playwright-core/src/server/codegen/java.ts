@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { toClickOptionsForSourceCode, toKeyboardModifiers, toSignalMap } from './language';
+import { generateComment, toClickOptionsForSourceCode, toKeyboardModifiers, toSignalMap } from './language';
 import { deviceDescriptors } from '../deviceDescriptors';
 import { JavaScriptFormatter } from './javascript';
 import { asLocator, escapeWithQuotes } from '../../utils';
@@ -51,6 +51,9 @@ export class JavaLanguageGenerator implements LanguageGenerator {
     const pageAlias = actionInContext.frame.pageAlias;
     const offset = this._mode === 'junit' ? 4 : 6;
     const formatter = new JavaScriptFormatter(offset);
+
+    if (action.name === 'comment')
+      return generateComment(action.text, '//', offset);
 
     if (this._mode !== 'library' && (action.name === 'openPage' || action.name === 'closePage'))
       return '';
@@ -96,6 +99,7 @@ export class JavaLanguageGenerator implements LanguageGenerator {
     const action = actionInContext.action;
     switch (action.name) {
       case 'openPage':
+      case 'comment':
         throw Error('Not reached');
       case 'closePage':
         return `${subject}.close();`;

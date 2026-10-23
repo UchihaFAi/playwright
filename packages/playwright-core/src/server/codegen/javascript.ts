@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { sanitizeDeviceOptions, toClickOptionsForSourceCode, toKeyboardModifiers, toSignalMap } from './language';
+import { generateComment, sanitizeDeviceOptions, toClickOptionsForSourceCode, toKeyboardModifiers, toSignalMap } from './language';
 import { asLocator, escapeWithQuotes } from '../../utils';
 import { deviceDescriptors } from '../deviceDescriptors';
 
@@ -42,6 +42,9 @@ export class JavaScriptLanguageGenerator implements LanguageGenerator {
 
     const pageAlias = actionInContext.frame.pageAlias;
     const formatter = new JavaScriptFormatter(2);
+
+    if (action.name === 'comment')
+      return generateComment(action.text, '//', 2);
 
     if (action.name === 'openPage') {
       formatter.add(`const ${pageAlias} = await context.newPage();`);
@@ -80,6 +83,7 @@ export class JavaScriptLanguageGenerator implements LanguageGenerator {
     const action = actionInContext.action;
     switch (action.name) {
       case 'openPage':
+      case 'comment':
         throw Error('Not reached');
       case 'closePage':
         return `await ${subject}.close();`;

@@ -37,6 +37,14 @@ export function sanitizeDeviceOptions(device: any, options: BrowserContextOption
   return cleanedOptions;
 }
 
+export function generateComment(text: string, prefix: string, offset: number): string {
+  const indent = ' '.repeat(offset);
+  return text.trim().split('\n').map(line => {
+    const trimmed = line.trim();
+    return trimmed ? `${indent}${prefix} ${trimmed}` : `${indent}${prefix}`;
+  }).join('\n');
+}
+
 export function toSignalMap(action: actions.Action) {
   let popup: actions.PopupSignal | undefined;
   let download: actions.DownloadSignal | undefined;

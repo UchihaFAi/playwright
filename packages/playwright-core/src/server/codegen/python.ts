@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { sanitizeDeviceOptions, toClickOptionsForSourceCode, toKeyboardModifiers, toSignalMap } from './language';
+import { generateComment, sanitizeDeviceOptions, toClickOptionsForSourceCode, toKeyboardModifiers, toSignalMap } from './language';
 import { asLocator, escapeWithQuotes, toSnakeCase } from '../../utils';
 import { deviceDescriptors } from '../deviceDescriptors';
 
@@ -49,6 +49,9 @@ export class PythonLanguageGenerator implements LanguageGenerator {
 
     const pageAlias = actionInContext.frame.pageAlias;
     const formatter = new PythonFormatter(4);
+
+    if (action.name === 'comment')
+      return generateComment(action.text, '#', 4);
 
     if (action.name === 'openPage') {
       formatter.add(`${pageAlias} = ${this._awaitPrefix}context.new_page()`);
@@ -89,6 +92,7 @@ export class PythonLanguageGenerator implements LanguageGenerator {
     const action = actionInContext.action;
     switch (action.name) {
       case 'openPage':
+      case 'comment':
         throw Error('Not reached');
       case 'closePage':
         return `${subject}.close()`;

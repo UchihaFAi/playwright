@@ -203,6 +203,23 @@ export class ContextRecorder extends EventEmitter {
     }
   }
 
+  addComment(text: string): void {
+    const timestamp = monotonicTime();
+    this._collection.addComment({
+      frame: {
+        pageAlias: this._pageAliases.get(this._context.pages()[0]) || 'page',
+        framePath: [],
+      },
+      action: {
+        name: 'comment',
+        text,
+        signals: [],
+      },
+      startTime: timestamp,
+      endTime: timestamp,
+    });
+  }
+
   runTask(task: string): void {
     // TODO: implement
   }

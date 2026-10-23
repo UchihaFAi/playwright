@@ -35,7 +35,7 @@ export async function performAction(pageAliases: Map<Page, string>, actionInCont
     return;
   }
 
-  if (action.name === 'openPage')
+  if (action.name === 'openPage' || action.name === 'comment')
     throw Error('Not reached');
 
   if (action.name === 'closePage') {

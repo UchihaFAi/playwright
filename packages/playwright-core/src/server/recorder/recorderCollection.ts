@@ -60,6 +60,13 @@ export class RecorderCollection extends EventEmitter {
     this._addAction(actionInContext).catch(() => {});
   }
 
+  // Comments are added from the Recorder UI, so they are recorded even when
+  // recording is not enabled.
+  addComment(actionInContext: actions.ActionInContext) {
+    this._actions.push(actionInContext);
+    this.emit('change', collapseActions(this._actions));
+  }
+
   private async _addAction(actionInContext: actions.ActionInContext, callback?: () => Promise<void>) {
     if (!this._enabled)
       return;

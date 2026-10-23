@@ -37,6 +37,7 @@ export type ElementInfo = {
 
 export type EventData = {
   event:
+    | 'addComment'
     | 'clear'
     | 'resume'
     | 'step'
