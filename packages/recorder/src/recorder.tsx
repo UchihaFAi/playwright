@@ -192,7 +192,7 @@ export const Recorder: React.FC<RecorderProps> = ({
       <ToolbarButton icon='gist' title='Assert snapshot' toggled={mode === 'assertingSnapshot'} disabled={mode === 'none' || mode === 'standby' || mode === 'inspecting'} onClick={() => {
         window.dispatch({ event: 'setMode', params: { mode: mode === 'assertingSnapshot' ? 'recording' : 'assertingSnapshot' } });
       }}></ToolbarButton>
-      <ToolbarButton icon='comment-add' title='Add comment' toggled={commentDialogOpen} onClick={() => {
+      <ToolbarButton icon='comment' title='Add comment' toggled={commentDialogOpen} onClick={() => {
         setCommentDialogOpen(true);
       }}></ToolbarButton>
       <ToolbarSeparator />
@@ -246,7 +246,7 @@ export const Recorder: React.FC<RecorderProps> = ({
       />}
     />
     <dialog ref={commentDialogRef} className='comment-dialog' onClose={closeCommentDialog}>
-      <div className='title'><span className='codicon codicon-comment-add'></span>Add comment</div>
+      <div className='title'><span className='codicon codicon-comment'></span>Add comment</div>
       <div className='body'>
         <textarea
           ref={commentInputRef}

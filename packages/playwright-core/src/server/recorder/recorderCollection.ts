@@ -52,6 +52,10 @@ export class RecorderCollection extends EventEmitter {
   }
 
   addRecordedAction(actionInContext: actions.ActionInContext) {
+    if (actionInContext.action.name === 'comment') {
+      this.addComment(actionInContext);
+      return;
+    }
     if (['openPage', 'closePage'].includes(actionInContext.action.name)) {
       this._actions.push(actionInContext);
       this._fireChange();

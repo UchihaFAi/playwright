@@ -822,6 +822,8 @@ class Overlay {
   private _assertTextToggle: HTMLElement;
   private _assertValuesToggle: HTMLElement;
   private _assertSnapshotToggle: HTMLElement;
+  private _commentToggle: HTMLElement;
+  private _commentDialog: Dialog;
   private _offsetX = 0;
   private _dragState: { offsetX: number, dragStart: { x: number, y: number } } | undefined;
   private _measure: { width: number, height: number } = { width: 0, height: 0 };
@@ -873,6 +875,14 @@ class Overlay {
     this._assertSnapshotToggle.appendChild(this._recorder.document.createElement('x-div'));
     toolsListElement.appendChild(this._assertSnapshotToggle);
 
+    this._commentToggle = this._recorder.document.createElement('x-pw-tool-item');
+    this._commentToggle.title = 'Add comment';
+    this._commentToggle.classList.add('comment');
+    this._commentToggle.appendChild(this._recorder.document.createElement('x-div'));
+    toolsListElement.appendChild(this._commentToggle);
+
+    this._commentDialog = new Dialog(this._recorder);
+
     this._updateVisualPosition();
     this._refreshListeners();
   }
@@ -920,7 +930,49 @@ class Overlay {
         if (!this._assertSnapshotToggle.classList.contains('disabled'))
           this._recorder.setMode(this._recorder.state.mode === 'assertingSnapshot' ? 'recording' : 'assertingSnapshot');
       }),
+      addEventListener(this._commentToggle, 'click', () => {
+        if (this._commentDialog.isShowing())
+          this._commentDialog.close();
+        else
+          this._showCommentDialog();
+      }),
     ];
+  }
+
+  private _showCommentDialog() {
+    const textElement = this._recorder.document.createElement('textarea');
+    textElement.setAttribute('spellcheck', 'false');
+    textElement.classList.add('text-editor');
+
+    const commit = () => {
+      const text = textElement.value.trim();
+      this._commentDialog.close();
+      this._commentToggle.classList.remove('toggled');
+      if (text)
+        this._recorder.recordAction({ name: 'comment', text, signals: [] });
+    };
+
+    textElement.addEventListener('keydown', event => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        commit();
+      }
+    });
+
+    const dialogElement = this._commentDialog.show({
+      label: 'Add comment',
+      body: textElement,
+      onCommit: commit,
+      onCancel: () => this._commentToggle.classList.remove('toggled'),
+    });
+    this._commentToggle.classList.add('toggled');
+    // Place the dialog right under the overlay toolbar, following its drag offset,
+    // but keep it inside the viewport.
+    const viewportWidth = this._recorder.injectedScript.window.innerWidth;
+    const width = dialogElement.getBoundingClientRect().width;
+    const left = (viewportWidth - width) / 2 + this._offsetX;
+    this._commentDialog.moveTo(this._measure.height + 6, Math.max(6, Math.min(left, viewportWidth - width - 6)));
+    textElement.focus();
   }
 
   install() {
@@ -948,10 +1000,13 @@ class Overlay {
       this._offsetX = state.overlay.offsetX;
       this._updateVisualPosition();
     }
-    if (state.mode === 'none')
+    if (state.mode === 'none') {
+      this._commentDialog.close();
+      this._commentToggle.classList.remove('toggled');
       this._hideOverlay();
-    else
+    } else {
       this._showOverlay();
+    }
   }
 
   flashToolSucceeded(tool: 'assertingVisibility' | 'assertingSnapshot' | 'assertingValue') {

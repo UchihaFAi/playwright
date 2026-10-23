@@ -1062,4 +1062,55 @@ await page.GetByRole(AriaRole.Button, new() { Name = "Submit" }).ClickAsync();`)
     expect(sources.get('JavaScript')!.text).toContain(`
   // not recording`);
   });
+
+  test('should add a comment from the page overlay', async ({ openRecorder }) => {
+    const { recorder } = await openRecorder();
+
+    await recorder.setContentAndWait(`<button onclick="console.log('click')">Submit</button>`);
+
+    await recorder.page.click('x-pw-tool-item.comment');
+    await recorder.page.fill('x-pw-dialog textarea', 'from the page');
+    await recorder.page.press('x-pw-dialog textarea', 'Enter');
+
+    const sources = await recorder.waitForOutput('JavaScript', 'from the page');
+    expect.soft(sources.get('JavaScript')!.text).toContain(`
+  // from the page`);
+    expect.soft(sources.get('Java')!.text).toContain(`
+      // from the page`);
+    await expect(recorder.page.locator('x-pw-dialog')).toBeHidden();
+  });
+
+  test('should add a comment from the page overlay when recording is disabled', async ({ openRecorder }) => {
+    const { recorder } = await openRecorder();
+
+    await recorder.setContentAndWait(`<button onclick="console.log('click')">Submit</button>`);
+
+    await recorder.recorderPage.getByRole('button', { name: 'Record' }).click();
+    await recorder.page.click('x-pw-tool-item.comment');
+    await recorder.page.fill('x-pw-dialog textarea', 'standby comment');
+    await recorder.page.press('x-pw-dialog textarea', 'Enter');
+
+    // Not using waitForOutput here: driving the page over the API while recording is
+    // off makes the recorder report the test file itself as a user source.
+    await expect.poll(() => recorder.text('JavaScript')).toContain(`
+  // standby comment`);
+  });
+
+  test('should cancel the page overlay comment dialog', async ({ openRecorder }) => {
+    const { recorder } = await openRecorder();
+
+    await recorder.setContentAndWait(`<button onclick="console.log('click')">Submit</button>`);
+
+    await recorder.page.click('x-pw-tool-item.comment');
+    await recorder.page.fill('x-pw-dialog textarea', 'discarded');
+    await recorder.page.press('x-pw-dialog textarea', 'Escape');
+    await expect(recorder.page.locator('x-pw-dialog')).toBeHidden();
+
+    await recorder.page.hover('button');
+    const sources = await Promise.all([
+      recorder.waitForOutput('JavaScript', 'click'),
+      recorder.trustedClick(),
+    ]);
+    expect(sources[0].get('JavaScript')!.text).not.toContain('discarded');
+  });
 });
