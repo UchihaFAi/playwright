@@ -15,7 +15,7 @@
  */
 
 import type * as actions from '@recorder/actions';
-import type { CallLog, ElementInfo, Mode, Source } from '@recorder/recorderTypes';
+import type { CallLog, ElementInfo, Mode, NetworkRequestDetails, NetworkRequestSummary, Source } from '@recorder/recorderTypes';
 import type { EventEmitter } from 'events';
 
 export interface IRecorder {
@@ -34,6 +34,8 @@ export interface IRecorderApp extends EventEmitter {
   updateCallLogs(callLogs: CallLog[]): Promise<void>;
   setSources(sources: Source[], primaryPageURL: string | undefined): Promise<void>;
   setActions(actions: actions.ActionInContext[], sources: Source[]): Promise<void>;
+  setNetworkRequests(requests: NetworkRequestSummary[]): Promise<void>;
+  setNetworkRequestDetails(details: NetworkRequestDetails | null): Promise<void>;
 }
 
 export type IRecorderAppFactory = (recorder: IRecorder) => Promise<IRecorderApp>;

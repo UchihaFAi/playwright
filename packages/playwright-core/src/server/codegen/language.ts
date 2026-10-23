@@ -49,6 +49,7 @@ export function toSignalMap(action: actions.Action) {
   let popup: actions.PopupSignal | undefined;
   let download: actions.DownloadSignal | undefined;
   let dialog: actions.DialogSignal | undefined;
+  const responses: actions.ResponseSignal[] = [];
   for (const signal of action.signals) {
     if (signal.name === 'popup')
       popup = signal;
@@ -56,12 +57,19 @@ export function toSignalMap(action: actions.Action) {
       download = signal;
     else if (signal.name === 'dialog')
       dialog = signal;
+    else if (signal.name === 'response')
+      responses.push(signal);
   }
   return {
     popup,
     download,
     dialog,
+    responses,
   };
+}
+
+export function indentLines(text: string, indent: string): string {
+  return text.split('\n').map(line => line ? indent + line : line).join('\n');
 }
 
 export function toKeyboardModifiers(modifiers: number): types.SmartKeyboardModifier[] {

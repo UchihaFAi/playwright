@@ -39,6 +39,9 @@ export type EventData = {
   event:
     | 'addComment'
     | 'saveScript'
+    | 'networkRequestDetails'
+    | 'addNetworkRequest'
+    | 'clearNetwork'
     | 'clear'
     | 'resume'
     | 'step'
@@ -99,8 +102,39 @@ export type Source = {
   actions?: string[];
 };
 
+export type NetworkRequestSummary = {
+  id: string;
+  method: string;
+  url: string;
+  resourceType: string;
+  // Not set until the response arrives.
+  status?: number;
+  failure?: string;
+  duration?: number;
+  responseSize?: number;
+  addedToScript?: boolean;
+  addError?: string;
+};
+
+export type NetworkRequestBody = {
+  mimeType: string;
+  size: number;
+  // Only text bodies up to the size limit are kept.
+  text?: string;
+};
+
+export type NetworkRequestDetails = {
+  id: string;
+  requestHeaders: { name: string, value: string }[];
+  responseHeaders: { name: string, value: string }[];
+  requestBody?: NetworkRequestBody;
+  responseBody?: NetworkRequestBody;
+};
+
 declare global {
   interface Window {
+    playwrightSetNetworkRequests: (requests: NetworkRequestSummary[]) => void;
+    playwrightSetNetworkRequestDetails: (details: NetworkRequestDetails | null) => void;
     playwrightSetMode: (mode: Mode) => void;
     playwrightSetPaused: (paused: boolean) => void;
     playwrightSetSources: (sources: Source[], primaryPageURL: string | undefined) => void;

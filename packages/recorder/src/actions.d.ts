@@ -154,7 +154,17 @@ export type DialogSignal = BaseSignal & {
   dialogAlias: string,
 };
 
-export type Signal = NavigationSignal | PopupSignal | DownloadSignal | DialogSignal;
+// Added from the Network tab: the action is expected to cause this response.
+export type ResponseSignal = BaseSignal & {
+  name: 'response',
+  method: string,
+  // URL path without host and query.
+  path: string,
+  status: number,
+  responseAlias: string,
+};
+
+export type Signal = NavigationSignal | PopupSignal | DownloadSignal | DialogSignal | ResponseSignal;
 
 export type FrameDescription = {
   pageAlias: string;

@@ -78,13 +78,18 @@ export function collapseActions(actions: actions.ActionInContext[]): actions.Act
     const lastAction = result[result.length - 1];
     const isSameAction = lastAction && lastAction.action.name === action.action.name && lastAction.frame.pageAlias === action.frame.pageAlias && lastAction.frame.framePath.join('|') === action.frame.framePath.join('|');
     const isSameSelector = lastAction && 'selector' in lastAction.action && 'selector' in action.action && action.action.selector === lastAction.action.selector;
-    const shouldMerge = isSameAction && (action.action.name === 'navigate' || (action.action.name === 'fill' && isSameSelector));
+    // A navigation with a response check must stay: its page has to load for the check to pass.
+    const hasResponseCheck = lastAction && lastAction.action.signals.some(signal => signal.name === 'response');
+    const shouldMerge = isSameAction && ((action.action.name === 'navigate' && !hasResponseCheck) || (action.action.name === 'fill' && isSameSelector));
     if (!shouldMerge) {
       result.push(action);
       continue;
     }
     const startTime = result[result.length - 1].startTime;
-    result[result.length - 1] = action;
+    // Response checks added from the Network tab survive the merge. Copy instead of
+    // mutating, since raw actions are collapsed again on every change.
+    const responseSignals = lastAction.action.signals.filter(signal => signal.name === 'response');
+    result[result.length - 1] = responseSignals.length ? { ...action, action: { ...action.action, signals: [...responseSignals, ...action.action.signals] } } : action;
     result[result.length - 1].startTime = startTime;
   }
   return result;

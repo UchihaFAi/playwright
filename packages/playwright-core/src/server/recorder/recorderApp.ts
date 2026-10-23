@@ -29,7 +29,7 @@ import type { BrowserContext } from '../browserContext';
 import type { Page } from '../page';
 import type { IRecorder, IRecorderApp, IRecorderAppFactory } from './recorderFrontend';
 import type * as actions from '@recorder/actions';
-import type { CallLog, ElementInfo, Mode, Source } from '@recorder/recorderTypes';
+import type { CallLog, ElementInfo, Mode, NetworkRequestDetails, NetworkRequestSummary, Source } from '@recorder/recorderTypes';
 
 export class EmptyRecorderApp extends EventEmitter implements IRecorderApp {
   wsEndpointForTest: undefined;
@@ -41,6 +41,8 @@ export class EmptyRecorderApp extends EventEmitter implements IRecorderApp {
   async updateCallLogs(callLogs: CallLog[]): Promise<void> {}
   async setSources(sources: Source[], primaryPageURL: string | undefined): Promise<void> {}
   async setActions(actions: actions.ActionInContext[], sources: Source[]): Promise<void> {}
+  async setNetworkRequests(requests: NetworkRequestSummary[]): Promise<void> {}
+  async setNetworkRequestDetails(details: NetworkRequestDetails | null): Promise<void> {}
 }
 
 export class RecorderApp extends EventEmitter implements IRecorderApp {
@@ -158,6 +160,18 @@ export class RecorderApp extends EventEmitter implements IRecorderApp {
   }
 
   async setActions(actions: actions.ActionInContext[], sources: Source[]): Promise<void> {
+  }
+
+  async setNetworkRequests(requests: NetworkRequestSummary[]): Promise<void> {
+    await this._page.mainFrame().evaluateExpression(((requests: NetworkRequestSummary[]) => {
+      window.playwrightSetNetworkRequests(requests);
+    }).toString(), { isFunction: true }, requests).catch(() => {});
+  }
+
+  async setNetworkRequestDetails(details: NetworkRequestDetails | null): Promise<void> {
+    await this._page.mainFrame().evaluateExpression(((details: NetworkRequestDetails | null) => {
+      window.playwrightSetNetworkRequestDetails(details);
+    }).toString(), { isFunction: true }, details).catch(() => {});
   }
 
   async elementPicked(elementInfo: ElementInfo, userGesture?: boolean): Promise<void> {

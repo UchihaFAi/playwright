@@ -14,7 +14,7 @@
   limitations under the License.
 */
 
-import type { CallLog, ElementInfo, Mode, Source } from './recorderTypes';
+import type { CallLog, ElementInfo, Mode, NetworkRequestDetails, NetworkRequestSummary, Source } from './recorderTypes';
 import { CodeMirrorWrapper } from '@web/components/codeMirrorWrapper';
 import type { SourceHighlight } from '@web/components/codeMirrorWrapper';
 import { SplitView } from '@web/components/splitView';
@@ -24,6 +24,7 @@ import { emptySource, SourceChooser } from '@web/components/sourceChooser';
 import { ToolbarButton, ToolbarSeparator } from '@web/components/toolbarButton';
 import * as React from 'react';
 import { CallLogView } from './callLog';
+import { NetworkView } from './networkView';
 import './recorder.css';
 import { asLocator } from '@isomorphic/locatorGenerators';
 import { toggleTheme } from '@web/theme';
@@ -51,6 +52,8 @@ export interface RecorderProps {
   paused: boolean,
   log: Map<string, CallLog>,
   mode: Mode,
+  networkRequests: NetworkRequestSummary[],
+  networkDetails: NetworkRequestDetails | null,
 }
 
 export const Recorder: React.FC<RecorderProps> = ({
@@ -58,6 +61,8 @@ export const Recorder: React.FC<RecorderProps> = ({
   paused,
   log,
   mode,
+  networkRequests,
+  networkDetails,
 }) => {
   const [selectedFileId, setSelectedFileId] = React.useState<string | undefined>();
   const [runningFileId, setRunningFileId] = React.useState<string | undefined>();
@@ -282,7 +287,9 @@ export const Recorder: React.FC<RecorderProps> = ({
       <ToolbarButton icon='color-mode' title='Toggle color mode' toggled={false} onClick={() => toggleTheme()}></ToolbarButton>
     </Toolbar>
     <SplitView
-      sidebarSize={200}
+      // The Network tab needs more room: give it a taller pane when it is selected.
+      key={selectedTab === 'network' ? 'network' : 'default'}
+      sidebarSize={selectedTab === 'network' ? 360 : 200}
       main={<CodeMirrorWrapper text={source.text} language={source.language} highlight={source.highlight} revealLine={source.revealLine} readOnly={true} lineNumbers={true} />}
       sidebar={<TabbedPane
         rightToolbar={selectedTab === 'locator' || selectedTab === 'aria' ? [<ToolbarButton key={1} icon='files' title='Copy' onClick={() => copy((selectedTab === 'locator' ? locator : ariaSnapshot) || '')} />] : []}
@@ -301,6 +308,12 @@ export const Recorder: React.FC<RecorderProps> = ({
             id: 'aria',
             title: 'Aria',
             render: () => <CodeMirrorWrapper text={ariaSnapshot || ''} placeholder='Type aria template to match' language={'yaml'} onChange={onAriaEditorChange} highlight={ariaSnapshotErrors} wrapLines={true} />
+          },
+          {
+            id: 'network',
+            title: 'Network',
+            count: networkRequests.length || undefined,
+            render: () => <NetworkView requests={networkRequests} details={networkDetails} />
           },
         ]}
         selectedTab={selectedTab}

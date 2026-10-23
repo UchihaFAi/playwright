@@ -68,6 +68,8 @@ export class JavaScriptLanguageGenerator implements LanguageGenerator {
       formatter.add(`const ${signals.popup.popupAlias}Promise = ${pageAlias}.waitForEvent('popup');`);
     if (signals.download)
       formatter.add(`const download${signals.download.downloadAlias}Promise = ${pageAlias}.waitForEvent('download');`);
+    for (const response of signals.responses)
+      formatter.add(`const ${response.responseAlias}ResponsePromise = ${pageAlias}.waitForResponse(response => response.request().method() === ${quote(response.method)} && new URL(response.url()).pathname === ${quote(response.path)});`);
 
     formatter.add(wrapWithStep(actionInContext.description, this._generateActionCall(subject, actionInContext)));
 
@@ -75,6 +77,14 @@ export class JavaScriptLanguageGenerator implements LanguageGenerator {
       formatter.add(`const ${signals.popup.popupAlias} = await ${signals.popup.popupAlias}Promise;`);
     if (signals.download)
       formatter.add(`const download${signals.download.downloadAlias} = await download${signals.download.downloadAlias}Promise;`);
+    for (const response of signals.responses) {
+      const name = `${response.responseAlias}Response`;
+      formatter.add(`const ${name} = await ${name}Promise;`);
+      if (this._isTest)
+        formatter.add(`expect(${name}.status()).toBe(${response.status});`);
+      else
+        formatter.add(`if (${name}.status() !== ${response.status})\n  throw new Error(${quote(`${response.method} ${response.path}: expected status ${response.status}, got `)} + ${name}.status());`);
+    }
 
     return formatter.format();
   }

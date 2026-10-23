@@ -14,7 +14,7 @@
   limitations under the License.
 */
 
-import type { CallLog, Mode, Source } from './recorderTypes';
+import type { CallLog, Mode, NetworkRequestDetails, NetworkRequestSummary, Source } from './recorderTypes';
 import * as React from 'react';
 import { Recorder } from './recorder';
 import './recorder.css';
@@ -24,6 +24,8 @@ export const Main: React.FC = ({}) => {
   const [paused, setPaused] = React.useState(false);
   const [log, setLog] = React.useState(new Map<string, CallLog>());
   const [mode, setMode] = React.useState<Mode>('none');
+  const [networkRequests, setNetworkRequests] = React.useState<NetworkRequestSummary[]>([]);
+  const [networkDetails, setNetworkDetails] = React.useState<NetworkRequestDetails | null>(null);
 
   React.useLayoutEffect(() => {
     window.playwrightSetMode = setMode;
@@ -35,6 +37,8 @@ export const Main: React.FC = ({}) => {
         : `Playwright Inspector`;
     };
     window.playwrightSetPaused = setPaused;
+    window.playwrightSetNetworkRequests = setNetworkRequests;
+    window.playwrightSetNetworkRequestDetails = setNetworkDetails;
     window.playwrightUpdateLogs = callLogs => {
       setLog(log => {
         const newLog = new Map<string, CallLog>(log);
@@ -47,5 +51,5 @@ export const Main: React.FC = ({}) => {
     };
   }, []);
 
-  return <Recorder sources={sources} paused={paused} log={log} mode={mode} />;
+  return <Recorder sources={sources} paused={paused} log={log} mode={mode} networkRequests={networkRequests} networkDetails={networkDetails} />;
 };

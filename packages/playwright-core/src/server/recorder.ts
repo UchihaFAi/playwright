@@ -34,7 +34,7 @@ import type { Point } from '../utils/isomorphic/types';
 import type { AriaTemplateNode } from '@isomorphic/ariaSnapshot';
 import type * as channels from '@protocol/channels';
 import type * as actions from '@recorder/actions';
-import type { CallLog, CallLogStatus, ElementInfo, EventData, Mode, OverlayState, Source, UIState } from '@recorder/recorderTypes';
+import type { CallLog, CallLogStatus, ElementInfo, EventData, Mode, NetworkRequestSummary, OverlayState, Source, UIState } from '@recorder/recorderTypes';
 
 const recorderSymbol = Symbol('recorderSymbol');
 
@@ -134,6 +134,18 @@ export class Recorder implements InstrumentationListener, IRecorder {
         this._contextRecorder.clearScript();
         return;
       }
+      if (data.event === 'networkRequestDetails') {
+        recorderApp.setNetworkRequestDetails(this._contextRecorder.networkRequestDetails(data.params.id)).catch(() => {});
+        return;
+      }
+      if (data.event === 'addNetworkRequest') {
+        this._contextRecorder.addNetworkRequest(data.params.id);
+        return;
+      }
+      if (data.event === 'clearNetwork') {
+        this._contextRecorder.clearNetwork();
+        return;
+      }
       if (data.event === 'saveScript') {
         this._contextRecorder.saveScript(data.params.text, data.params.fileName);
         return;
@@ -151,6 +163,7 @@ export class Recorder implements InstrumentationListener, IRecorder {
     await Promise.all([
       recorderApp.setMode(this._mode),
       recorderApp.setPaused(this._debugger.isPaused()),
+      recorderApp.setNetworkRequests(this._contextRecorder.networkRequests()),
       this._pushAllSources()
     ]);
 
@@ -158,6 +171,10 @@ export class Recorder implements InstrumentationListener, IRecorder {
       this._contextRecorder.dispose();
       this._context.instrumentation.removeListener(this);
       this._recorderApp?.close().catch(() => {});
+    });
+
+    this._contextRecorder.on(ContextRecorder.Events.NetworkChange, (requests: NetworkRequestSummary[]) => {
+      recorderApp.setNetworkRequests(requests).catch(() => {});
     });
 
     this._contextRecorder.on(ContextRecorder.Events.Change, (data: { sources: Source[], actions: actions.ActionInContext[] }) => {

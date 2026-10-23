@@ -71,6 +71,20 @@ export class RecorderCollection extends EventEmitter {
     this.emit('change', collapseActions(this._actions));
   }
 
+  // Attaches the response check to the last interaction started before the request,
+  // so that replay starts waiting for the response before the request is sent.
+  addResponseSignal(requestStartTime: number, signal: actions.ResponseSignal): boolean {
+    for (let i = this._actions.length - 1; i >= 0; --i) {
+      const actionInContext = this._actions[i];
+      if (actionInContext.startTime > requestStartTime || !isInteraction(actionInContext.action))
+        continue;
+      actionInContext.action.signals.push(signal);
+      this.emit('change', collapseActions(this._actions));
+      return true;
+    }
+    return false;
+  }
+
   private async _addAction(actionInContext: actions.ActionInContext, callback?: () => Promise<void>) {
     if (!this._enabled)
       return;
@@ -134,4 +148,8 @@ export class RecorderCollection extends EventEmitter {
 
     this.emit('change', collapseActions(this._actions));
   }
+}
+
+function isInteraction(action: actions.Action): boolean {
+  return !['openPage', 'closePage', 'comment'].includes(action.name) && !action.name.startsWith('assert');
 }

@@ -83,6 +83,17 @@ export class PythonLanguageGenerator implements LanguageGenerator {
       download${signals.download.downloadAlias} = ${this._awaitPrefix}download${signals.download.downloadAlias}_info.value`;
     }
 
+    for (const response of signals.responses) {
+      const name = `${toSnakeCase(response.responseAlias)}_response`;
+      code = `${this._asyncPrefix}with ${pageAlias}.expect_response(lambda response: response.request.method == ${quote(response.method)} and urlparse(response.url).path == ${quote(response.path)}) as ${name}_info {
+        ${code}
+      }
+      ${name} = ${this._awaitPrefix}${name}_info.value
+      assert ${name}.status == ${response.status}, ${quote(`${response.method} ${response.path}`)}`;
+    }
+    if (signals.responses.length)
+      formatter.add('from urllib.parse import urlparse');
+
     formatter.add(code);
 
     return formatter.format();

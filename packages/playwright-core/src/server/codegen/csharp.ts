@@ -100,6 +100,13 @@ export class CSharpLanguageGenerator implements LanguageGenerator {
       lines.push(`});`);
     }
 
+    for (const response of signals.responses) {
+      const name = `${response.responseAlias}Response`;
+      lines.unshift(`var ${name} = await ${pageAlias}.RunAndWaitForResponseAsync(async () =>\n{`);
+      lines.push(`}, response => response.Request.Method == ${quote(response.method)} && new Uri(response.Url).AbsolutePath == ${quote(response.path)});`);
+      lines.push(`if (${name}.Status != ${response.status})\n    throw new Exception(${quote(`${response.method} ${response.path}: expected status ${response.status}, got `)} + ${name}.Status);`);
+    }
+
     for (const line of lines)
       formatter.add(line);
 

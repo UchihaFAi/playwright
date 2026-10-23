@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { generateComment, toClickOptionsForSourceCode, toKeyboardModifiers, toSignalMap } from './language';
+import { generateComment, indentLines, toClickOptionsForSourceCode, toKeyboardModifiers, toSignalMap } from './language';
 import { deviceDescriptors } from '../deviceDescriptors';
 import { JavaScriptFormatter } from './javascript';
 import { asLocator, escapeWithQuotes } from '../../utils';
@@ -92,7 +92,31 @@ export class JavaLanguageGenerator implements LanguageGenerator {
 
     formatter.add(code);
 
-    return formatter.format();
+    let result = formatter.format();
+    for (const response of signals.responses)
+      result = this._wrapWithResponseCheck(result, pageAlias, response, offset);
+    return result;
+  }
+
+  // Starts waiting for the response before the action runs, then checks its status.
+  private _wrapWithResponseCheck(code: string, pageAlias: string, response: actions.ResponseSignal, offset: number): string {
+    const indent = ' '.repeat(offset);
+    const name = `${response.responseAlias}Response`;
+    const description = quote(`${response.method} ${response.path}`);
+    // JUnit tests do not import com.microsoft.playwright.*, library scripts are moved into TestNG suites.
+    const responseType = this._mode === 'junit' ? 'com.microsoft.playwright.Response' : 'Response';
+    const assertion = this._mode === 'junit'
+      ? `Assertions.assertEquals(${response.status}, ${name}.status(), ${description});`
+      : `org.testng.Assert.assertEquals(${name}.status(), ${response.status}, ${description});`;
+    return [
+      `${indent}${responseType} ${name} = ${pageAlias}.waitForResponse(`,
+      `${indent}    response -> response.request().method().equals(${quote(response.method)})`,
+      `${indent}        && java.net.URI.create(response.url()).getRawPath().equals(${quote(response.path)}),`,
+      `${indent}    () -> {`,
+      indentLines(code, '      '),
+      `${indent}    });`,
+      `${indent}${assertion}`,
+    ].join('\n');
   }
 
   private _generateActionCall(subject: string, actionInContext: actions.ActionInContext, inFrameLocator: boolean): string {

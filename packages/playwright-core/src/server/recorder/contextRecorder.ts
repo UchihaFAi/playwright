@@ -19,6 +19,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { RecorderCollection } from './recorderCollection';
+import { RecorderNetwork } from './recorderNetwork';
 import * as recorderSource from '../../generated/pollingRecorderSource';
 import { eventsHelper, monotonicTime, quoteCSSAttributeValue  } from '../../utils';
 import { raceAgainstDeadline } from '../../utils/isomorphic/timeoutRunner';
@@ -34,7 +35,7 @@ import type { Language, LanguageGenerator, LanguageGeneratorOptions } from '../c
 import type { Dialog } from '../dialog';
 import type * as channels from '@protocol/channels';
 import type * as actions from '@recorder/actions';
-import type { Source } from '@recorder/recorderTypes';
+import type { NetworkRequestDetails, NetworkRequestSummary, Source } from '@recorder/recorderTypes';
 
 type BindingSource = { frame: Frame, page: Page };
 
@@ -44,10 +45,13 @@ export interface ContextRecorderDelegate {
 
 export class ContextRecorder extends EventEmitter {
   static Events = {
-    Change: 'change'
+    Change: 'change',
+    NetworkChange: 'networkchange',
   };
 
   private _collection: RecorderCollection;
+  private _network: RecorderNetwork;
+  private _responseAliases = new Map<string, number>();
   private _pageAliases = new Map<Page, string>();
   private _lastPopupOrdinal = 0;
   private _lastDialogOrdinal = -1;
@@ -77,6 +81,9 @@ export class ContextRecorder extends EventEmitter {
       deviceName: params.device,
       saveStorage: params.saveStorage,
     };
+
+    this._network = new RecorderNetwork(context);
+    this._network.on(RecorderNetwork.Events.Change, (requests: NetworkRequestSummary[]) => this.emit(ContextRecorder.Events.NetworkChange, requests));
 
     this._collection = new RecorderCollection(this._pageAliases);
     this._collection.on('change', (actions: actions.ActionInContext[]) => {
@@ -157,6 +164,7 @@ export class ContextRecorder extends EventEmitter {
 
   dispose() {
     eventsHelper.removeEventListeners(this._listeners);
+    this._network.dispose();
   }
 
   private async _onPage(page: Page) {
@@ -199,6 +207,8 @@ export class ContextRecorder extends EventEmitter {
 
   clearScript(): void {
     this._collection.restart();
+    this._responseAliases.clear();
+    this._network.resetAdded();
     if (this._params.mode === 'recording') {
       for (const page of this._context.pages())
         this._onFrameNavigated(page.mainFrame(), page);
@@ -220,6 +230,45 @@ export class ContextRecorder extends EventEmitter {
       startTime: timestamp,
       endTime: timestamp,
     });
+  }
+
+  networkRequests(): NetworkRequestSummary[] {
+    return this._network.requests();
+  }
+
+  networkRequestDetails(id: string): NetworkRequestDetails | null {
+    return this._network.details(id);
+  }
+
+  clearNetwork(): void {
+    this._network.clear();
+  }
+
+  addNetworkRequest(id: string): void {
+    const entry = this._network.entry(id);
+    if (!entry || entry.summary.addedToScript)
+      return;
+    const { summary } = entry;
+    if (summary.status === undefined) {
+      this._network.markAdded(id, summary.failure ? 'The request failed, there is no status to check' : 'The response has not arrived yet');
+      return;
+    }
+    const path = new URL(summary.url).pathname;
+    const base = responseAliasBase(path);
+    const ordinal = (this._responseAliases.get(base) || 0) + 1;
+    const signal: actions.ResponseSignal = {
+      name: 'response',
+      method: summary.method,
+      path,
+      status: summary.status,
+      responseAlias: ordinal === 1 ? base : base + ordinal,
+    };
+    if (!this._collection.addResponseSignal(entry.startTime, signal)) {
+      this._network.markAdded(id, 'No recorded action before this request to attach the check to');
+      return;
+    }
+    this._responseAliases.set(base, ordinal);
+    this._network.markAdded(id);
   }
 
   saveScript(text: string, fileName: string): void {
@@ -258,12 +307,15 @@ export class ContextRecorder extends EventEmitter {
   }
 
   private async _createActionInContext(frame: Frame, action: actions.Action): Promise<actions.ActionInContext> {
+    // Timestamp the action when it is reported, before the async work below, so that
+    // requests it causes are never considered to start before it.
+    const startTime = monotonicTime();
     const frameDescription = await this._describeFrame(frame);
     const actionInContext: actions.ActionInContext = {
       frame: frameDescription,
       action,
       description: undefined,
-      startTime: monotonicTime()
+      startTime,
     };
     await this._delegate.rewriteActionInContext?.(this._pageAliases, actionInContext);
     return actionInContext;
@@ -335,4 +387,27 @@ async function generateFrameSelectorInParent(parent: Frame, frame: Frame): Promi
   if (frame.name())
     return `iframe[name=${quoteCSSAttributeValue(frame.name())}]`;
   return `iframe[src=${quoteCSSAttributeValue(frame.url())}]`;
+}
+
+// Names the response variable after the last meaningful path segment:
+// "/api/cdmr/client/5302225674/profile" -> "profile".
+function responseAliasBase(path: string): string {
+  const segments = path.split('/').filter(Boolean).reverse();
+  for (const segment of segments) {
+    let decoded = segment;
+    try {
+      decoded = decodeURIComponent(segment);
+    } catch {
+    }
+    if (/^\d+$/.test(decoded) || /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i.test(decoded) || /^[0-9a-f]{16,}$/i.test(decoded))
+      continue;
+    const words = decoded.split(/[^A-Za-z0-9]+/).filter(Boolean);
+    if (!words.length || /^\d/.test(words[0]))
+      continue;
+    return words.map((word, index) => {
+      const normalized = word === word.toUpperCase() ? word.toLowerCase() : word;
+      return index ? normalized[0].toUpperCase() + normalized.substring(1) : normalized[0].toLowerCase() + normalized.substring(1);
+    }).join('');
+  }
+  return 'api';
 }
