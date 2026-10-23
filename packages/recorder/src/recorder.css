@@ -92,3 +92,17 @@ dialog.comment-dialog .button[disabled] {
   opacity: 0.5;
   cursor: default;
 }
+
+dialog.save-dialog {
+  width: 320px;
+  margin: auto;
+}
+
+dialog.save-dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.save-dialog-message {
+  margin-bottom: 6px;
+  overflow-wrap: anywhere;
+}

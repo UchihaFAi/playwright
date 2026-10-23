@@ -38,6 +38,7 @@ export type ElementInfo = {
 export type EventData = {
   event:
     | 'addComment'
+    | 'saveScript'
     | 'clear'
     | 'resume'
     | 'step'

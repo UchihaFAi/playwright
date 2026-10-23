@@ -134,6 +134,10 @@ export class Recorder implements InstrumentationListener, IRecorder {
         this._contextRecorder.clearScript();
         return;
       }
+      if (data.event === 'saveScript') {
+        this._contextRecorder.saveScript(data.params.text, data.params.fileName);
+        return;
+      }
       if (data.event === 'addComment') {
         this._contextRecorder.addComment(data.params.text);
         return;

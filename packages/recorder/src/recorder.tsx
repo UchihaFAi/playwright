@@ -31,6 +31,21 @@ import { copy, useSetting } from '@web/uiUtils';
 import yaml from 'yaml';
 import { parseAriaSnapshot } from '@isomorphic/ariaSnapshot';
 
+const kLanguageFileTypes: Record<string, { description: string, extension: string }> = {
+  javascript: { description: 'JavaScript', extension: '.js' },
+  python: { description: 'Python', extension: '.py' },
+  java: { description: 'Java', extension: '.java' },
+  csharp: { description: 'C#', extension: '.cs' },
+  jsonl: { description: 'JSONL', extension: '.jsonl' },
+};
+
+function suggestedFileName(): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  return `playwright-script-${stamp}`;
+}
+
 export interface RecorderProps {
   sources: Source[],
   paused: boolean,
@@ -65,6 +80,8 @@ export const Recorder: React.FC<RecorderProps> = ({
   const [commentText, setCommentText] = React.useState('');
   const commentDialogRef = React.useRef<HTMLDialogElement>(null);
   const commentInputRef = React.useRef<HTMLTextAreaElement>(null);
+  const [savedFileName, setSavedFileName] = React.useState<string | undefined>();
+  const saveDialogRef = React.useRef<HTMLDialogElement>(null);
 
   const [locator, setLocator] = React.useState('');
   window.playwrightElementPicked = (elementInfo: ElementInfo, userGesture?: boolean) => {
@@ -92,7 +109,7 @@ export const Recorder: React.FC<RecorderProps> = ({
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (commentDialogOpen)
+      if (commentDialogOpen || savedFileName)
         return;
       switch (event.key) {
         case 'F8':
@@ -111,7 +128,7 @@ export const Recorder: React.FC<RecorderProps> = ({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [paused, commentDialogOpen]);
+  }, [paused, commentDialogOpen, savedFileName]);
 
   React.useEffect(() => {
     if (commentDialogOpen) {
@@ -125,6 +142,48 @@ export const Recorder: React.FC<RecorderProps> = ({
   const closeCommentDialog = React.useCallback(() => {
     setCommentDialogOpen(false);
     setCommentText('');
+  }, []);
+
+  React.useEffect(() => {
+    if (savedFileName)
+      saveDialogRef.current?.showModal();
+    else
+      saveDialogRef.current?.close();
+  }, [savedFileName]);
+
+  const saveScript = React.useCallback(async () => {
+    const text = source.text;
+    if (!text)
+      return;
+    const baseName = suggestedFileName();
+    const fileType = kLanguageFileTypes[source.language];
+    const showSaveFilePicker = (window as any).showSaveFilePicker;
+    if (showSaveFilePicker) {
+      const types = [{ description: 'Text file', accept: { 'text/plain': ['.txt'] } }];
+      if (fileType)
+        types.push({ description: `${fileType.description} file`, accept: { 'text/plain': [fileType.extension] } });
+      try {
+        const handle = await showSaveFilePicker({ suggestedName: baseName + '.txt', types });
+        const writable = await handle.createWritable();
+        await writable.write(text);
+        await writable.close();
+        setSavedFileName(handle.name);
+        return;
+      } catch (e: any) {
+        // The user dismissed the file picker - nothing to save, nothing to report.
+        if (e?.name === 'AbortError')
+          return;
+        // Any other failure means the picker is not usable here, fall back to the server.
+      }
+    }
+    const fileName = baseName + '.txt';
+    window.dispatch({ event: 'saveScript', params: { text, fileName } }).catch(() => { });
+    setSavedFileName(fileName);
+  }, [source]);
+
+  const clearAfterSave = React.useCallback(() => {
+    setSavedFileName(undefined);
+    window.dispatch({ event: 'clear' }).catch(() => { });
   }, []);
 
   const submitComment = React.useCallback(() => {
@@ -199,6 +258,9 @@ export const Recorder: React.FC<RecorderProps> = ({
       <ToolbarButton icon='files' title='Copy' disabled={!source || !source.text} onClick={() => {
         copy(source.text);
       }}></ToolbarButton>
+      <ToolbarButton icon='save-as' title='Save script' disabled={!source || !source.text} onClick={() => {
+        saveScript().catch(() => { });
+      }}></ToolbarButton>
       <ToolbarButton icon='debug-continue' title='Resume (F8)' ariaLabel='Resume' disabled={!paused} onClick={() => {
         window.dispatch({ event: 'resume' });
       }}></ToolbarButton>
@@ -265,6 +327,16 @@ export const Recorder: React.FC<RecorderProps> = ({
         <div>
           <button className='button' disabled={!commentText.trim()} onClick={submitComment}>Add</button>
           <button className='button secondary' onClick={closeCommentDialog}>Cancel</button>
+        </div>
+      </div>
+    </dialog>
+    <dialog ref={saveDialogRef} className='save-dialog' onClose={() => setSavedFileName(undefined)}>
+      <div className='title'><span className='codicon codicon-save-as'></span>Script saved</div>
+      <div className='body'>
+        <div className='save-dialog-message'>Saved to <b>{savedFileName || ''}</b>.<br />Clear the recorded script?</div>
+        <div>
+          <button className='button' onClick={clearAfterSave}>Clear</button>
+          <button className='button secondary' onClick={() => setSavedFileName(undefined)}>Keep</button>
         </div>
       </div>
     </dialog>

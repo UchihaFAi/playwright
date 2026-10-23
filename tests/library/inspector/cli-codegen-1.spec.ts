@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+import fs from 'fs';
+import path from 'path';
+
 import { test, expect } from './inspectorTest';
 import type { ConsoleMessage } from 'playwright';
 
@@ -1112,5 +1115,106 @@ await page.GetByRole(AriaRole.Button, new() { Name = "Submit" }).ClickAsync();`)
       recorder.trustedClick(),
     ]);
     expect(sources[0].get('JavaScript')!.text).not.toContain('discarded');
+  });
+
+  test('should save the script through the file picker', async ({ openRecorder }) => {
+    const { recorder } = await openRecorder();
+
+    await recorder.setContentAndWait(`<button onclick="console.log('click')">Submit</button>`);
+
+    await recorder.recorderPage.evaluate(() => {
+      const saved: any = { text: '', name: '', options: undefined };
+      (window as any).savedForTest = saved;
+      (window as any).showSaveFilePicker = async (options: any) => {
+        saved.options = options;
+        return {
+          name: 'my-script.txt',
+          createWritable: async () => ({
+            write: async (text: string) => { saved.text = text; },
+            close: async () => {},
+          }),
+        };
+      };
+    });
+
+    await recorder.recorderPage.getByRole('button', { name: 'Save script' }).click();
+
+    const saveDialog = recorder.recorderPage.locator('dialog.save-dialog');
+    await expect(saveDialog).toContainText('my-script.txt');
+
+    const saved = await recorder.recorderPage.evaluate(() => (window as any).savedForTest);
+    expect(saved.text).toContain(`const { chromium } = require('playwright');`);
+    expect(saved.options.suggestedName).toMatch(/^playwright-script-\d{8}-\d{6}\.txt$/);
+    expect(saved.options.types.map((type: any) => Object.values(type.accept)[0])).toEqual([['.txt'], ['.js']]);
+  });
+
+  test('should offer to clear the script after saving', async ({ openRecorder }) => {
+    const { recorder } = await openRecorder();
+
+    await recorder.setContentAndWait(`<button onclick="console.log('click')">Submit</button>`);
+
+    await recorder.hoverOverElement('button');
+    await Promise.all([
+      recorder.waitForOutput('JavaScript', 'click'),
+      recorder.trustedClick(),
+    ]);
+
+    await recorder.recorderPage.evaluate(() => {
+      (window as any).showSaveFilePicker = async () => ({
+        name: 'my-script.txt',
+        createWritable: async () => ({ write: async () => {}, close: async () => {} }),
+      });
+    });
+
+    await recorder.recorderPage.getByRole('button', { name: 'Save script' }).click();
+    const saveDialog = recorder.recorderPage.locator('dialog.save-dialog');
+    await saveDialog.getByRole('button', { name: 'Clear' }).click();
+    await expect(saveDialog).toBeHidden();
+
+    await expect.poll(() => recorder.text('JavaScript')).not.toContain(`getByRole('button', { name: 'Submit' }).click()`);
+  });
+
+  test('should keep the script when the save dialog is dismissed', async ({ openRecorder }) => {
+    const { recorder } = await openRecorder();
+
+    await recorder.setContentAndWait(`<button onclick="console.log('click')">Submit</button>`);
+
+    await recorder.hoverOverElement('button');
+    await Promise.all([
+      recorder.waitForOutput('JavaScript', 'click'),
+      recorder.trustedClick(),
+    ]);
+
+    await recorder.recorderPage.evaluate(() => {
+      (window as any).showSaveFilePicker = async () => ({
+        name: 'my-script.txt',
+        createWritable: async () => ({ write: async () => {}, close: async () => {} }),
+      });
+    });
+
+    await recorder.recorderPage.getByRole('button', { name: 'Save script' }).click();
+    const saveDialog = recorder.recorderPage.locator('dialog.save-dialog');
+    await saveDialog.getByRole('button', { name: 'Keep' }).click();
+    await expect(saveDialog).toBeHidden();
+
+    expect(await recorder.text('JavaScript')).toContain(`getByRole('button', { name: 'Submit' }).click()`);
+  });
+
+  test('should save the script without the file picker', async ({ openRecorder }, testInfo) => {
+    const outputFile = testInfo.outputPath('script.js');
+    const { recorder } = await openRecorder({ outputFile });
+
+    await recorder.setContentAndWait(`<button onclick="console.log('click')">Submit</button>`);
+
+    // Emulate an environment where the file picker is not available.
+    await recorder.recorderPage.evaluate(() => (window as any).showSaveFilePicker = undefined);
+    await recorder.recorderPage.getByRole('button', { name: 'Save script' }).click();
+
+    const dir = path.dirname(outputFile);
+    await expect.poll(() => fs.readdirSync(dir).filter(name => name.endsWith('.txt'))).toHaveLength(1);
+    const [name] = fs.readdirSync(dir).filter(name => name.endsWith('.txt'));
+    expect(name).toMatch(/^playwright-script-\d{8}-\d{6}\.txt$/);
+    expect(fs.readFileSync(path.join(dir, name), 'utf8')).toContain(`const { chromium } = require('playwright');`);
+    await expect(recorder.recorderPage.locator('dialog.save-dialog')).toContainText(name);
   });
 });

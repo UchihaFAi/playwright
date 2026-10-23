@@ -15,6 +15,8 @@
  */
 
 import { EventEmitter } from 'events';
+import fs from 'fs';
+import path from 'path';
 
 import { RecorderCollection } from './recorderCollection';
 import * as recorderSource from '../../generated/pollingRecorderSource';
@@ -218,6 +220,19 @@ export class ContextRecorder extends EventEmitter {
       startTime: timestamp,
       endTime: timestamp,
     });
+  }
+
+  saveScript(text: string, fileName: string): void {
+    const dir = this._params.outputFile ? path.dirname(path.resolve(this._params.outputFile)) : process.cwd();
+    const file = path.resolve(dir, path.basename(fileName));
+    try {
+      fs.writeFileSync(file, text, 'utf8');
+      // eslint-disable-next-line no-console
+      console.log(`Playwright Inspector: script saved to ${file}`);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.log(`Playwright Inspector: failed to save script to ${file}: ${e.message}`);
+    }
   }
 
   runTask(task: string): void {
