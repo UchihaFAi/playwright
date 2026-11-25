@@ -119,7 +119,7 @@ test.describe('network tab', () => {
     from urllib.parse import urlparse
     async with page.expect_response(lambda response: response.request.method == "POST" and urlparse(response.url).path == "/api/cdmr/client/search") as search_response_info:
         await page.get_by_role("button", name="Найти").click()
-    search_response = search_response_info.value
+    search_response = await search_response_info.value
     assert search_response.status == 200, "POST /api/cdmr/client/search"`);
 
     expect.soft(await recorder.text('C#')).toContain(`
