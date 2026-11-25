@@ -54,6 +54,13 @@ async function addToScript(recorder: Recorder, path: string) {
   await inspector.getByRole('button', { name: 'Add to script' }).click();
 }
 
+async function selectAllBodyText(inspector: Page) {
+  await inspector.locator('.network-body .CodeMirror').evaluate((element: HTMLElement) => {
+    (element as any).CodeMirror.execCommand('selectAll');
+  });
+  await expect(inspector.getByRole('button', { name: 'Add selected text to script as comment' })).toBeEnabled();
+}
+
 const searchButton = `<button onclick="fetch('/api/cdmr/client/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mdmId: '5401208568' }) })">Найти</button>`;
 
 test.describe('network tab', () => {
@@ -112,7 +119,7 @@ test.describe('network tab', () => {
     from urllib.parse import urlparse
     async with page.expect_response(lambda response: response.request.method == "POST" and urlparse(response.url).path == "/api/cdmr/client/search") as search_response_info:
         await page.get_by_role("button", name="Найти").click()
-    search_response = await search_response_info.value
+    search_response = search_response_info.value
     assert search_response.status == 200, "POST /api/cdmr/client/search"`);
 
     expect.soft(await recorder.text('C#')).toContain(`
@@ -144,6 +151,70 @@ if (searchResponse.Status != 200)
     await expect(inspector.locator('.network-body-toolbar')).toContainText('application/json');
     await inspector.getByRole('tab', { name: 'Headers' }).click();
     await expect(inspector.locator('.network-headers')).toContainText('Content-Type: application/json');
+  });
+
+  test('should add selected request and response text as comments', async ({ openRecorder, server }) => {
+    jsonRoute(server, '/api/cdmr/client/search', { total: 1, client: { fullName: 'Иванов Иван Иванович' } });
+    const { recorder } = await openRecorder();
+    await recorder.setContentAndWait(searchButton, server.EMPTY_PAGE);
+    await clickButton(recorder, 'Найти');
+
+    const inspector = recorder.recorderPage;
+    const addCommentButton = inspector.getByRole('button', { name: 'Add selected text to script as comment' });
+    await openNetworkTab(recorder);
+    const row = requestRow(inspector, '/api/cdmr/client/search');
+    await expect(row.locator('td').first()).toHaveText(/^\d+$/);
+    await row.click();
+
+    await inspector.getByRole('tab', { name: 'Payload' }).click();
+    await expect(addCommentButton).toBeDisabled();
+    await selectAllBodyText(inspector);
+    await addCommentButton.click();
+    await recorder.waitForOutput('JavaScript', 'Request: POST /api/cdmr/client/search');
+    expect(await recorder.text('JavaScript')).toContain(`
+  // Request: POST /api/cdmr/client/search
+  // {
+  //   "mdmId": "5401208568"
+  // }`);
+
+    await inspector.getByRole('tab', { name: 'Response' }).click();
+    await selectAllBodyText(inspector);
+    await addCommentButton.click();
+    await recorder.waitForOutput('JavaScript', 'Response: POST /api/cdmr/client/search');
+    expect.soft(await recorder.text('JavaScript')).toContain(`
+  // Response: POST /api/cdmr/client/search
+  // {
+  //   "total": 1,
+  //   "client": {
+  //     "fullName": "Иванов Иван Иванович"
+  //   }
+  // }`);
+    expect.soft(await recorder.text('Python')).toContain(`
+    # Response: POST /api/cdmr/client/search
+    # {
+    #   "total": 1,
+    #   "client": {
+    #     "fullName": "Иванов Иван Иванович"
+    #   }
+    # }`);
+  });
+
+  test('should reset the selected body text when switching requests', async ({ openRecorder, server }) => {
+    jsonRoute(server, '/api/first', { first: true });
+    jsonRoute(server, '/api/second', { second: true });
+    const { recorder } = await openRecorder();
+    await recorder.setContentAndWait(`<script>fetch('/api/first'); fetch('/api/second');</script>`, server.EMPTY_PAGE);
+
+    const inspector = recorder.recorderPage;
+    await openNetworkTab(recorder);
+    const firstRow = requestRow(inspector, '/api/first');
+    const secondRow = requestRow(inspector, '/api/second');
+    await expect(secondRow.locator('td').first()).toHaveText(/^\d+$/);
+    await firstRow.click();
+    await selectAllBodyText(inspector);
+    await secondRow.click();
+    await expect(inspector.locator('.network-body')).toContainText('"second": true');
+    await expect(inspector.getByRole('button', { name: 'Add selected text to script as comment' })).toBeDisabled();
   });
 
   test('should only collect fetch and xhr requests', async ({ openRecorder, server }) => {

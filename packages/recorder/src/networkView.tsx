@@ -110,7 +110,11 @@ export const NetworkView: React.FC<NetworkViewProps> = ({ requests, details }) =
         {
           id: 'payload',
           title: 'Payload',
-          render: () => <BodyView body={requestDetails?.requestBody} loading={!requestDetails} emptyText='No request body' />,
+          render: () => <BodyView
+            body={requestDetails?.requestBody}
+            loading={!requestDetails}
+            emptyText='No request body'
+            commentHeader={`Request: ${selected.method} ${urlPath(selected.url)}`} />,
         },
         {
           id: 'response',
@@ -118,7 +122,8 @@ export const NetworkView: React.FC<NetworkViewProps> = ({ requests, details }) =
           render: () => <BodyView
             body={requestDetails?.responseBody}
             loading={!requestDetails}
-            emptyText={selected.failure ? `Request failed: ${selected.failure}` : selected.status === undefined ? 'Waiting for the response…' : 'No response body'} />,
+            emptyText={selected.failure ? `Request failed: ${selected.failure}` : selected.status === undefined ? 'Waiting for the response…' : 'No response body'}
+            commentHeader={`Response: ${selected.method} ${urlPath(selected.url)}`} />,
         },
       ]}
     />
@@ -155,7 +160,14 @@ const HeaderSection: React.FC<{ title: string, headers: { name: string, value: s
   </div>;
 };
 
-const BodyView: React.FC<{ body: NetworkRequestBody | undefined, loading: boolean, emptyText: string }> = ({ body, loading, emptyText }) => {
+const BodyView: React.FC<{ body: NetworkRequestBody | undefined, loading: boolean, emptyText: string, commentHeader: string }> = ({ body, loading, emptyText, commentHeader }) => {
+  const [selection, setSelection] = React.useState('');
+  const onSelectionChange = React.useCallback((text: string) => setSelection(text), []);
+
+  React.useEffect(() => {
+    setSelection('');
+  }, [body?.text, commentHeader]);
+
   if (loading)
     return <div className='network-empty'>Loading…</div>;
   if (!body || !body.size)
@@ -166,9 +178,19 @@ const BodyView: React.FC<{ body: NetworkRequestBody | undefined, loading: boolea
   return <div className='network-body vbox'>
     <div className='network-body-toolbar'>
       <span className='network-muted'>{body.mimeType || 'text'} · {formatSize(body.size)}</span>
+      <ToolbarButton
+        icon='comment-add'
+        title='Add selected text to script as comment'
+        disabled={!selection.trim()}
+        onClick={() => {
+          if (!selection.trim())
+            return;
+          window.dispatch({ event: 'addComment', params: { text: `${commentHeader}\n${selection}` } }).catch(() => {});
+        }}
+      ></ToolbarButton>
       <ToolbarButton icon='files' title='Copy' onClick={() => copy(text)}></ToolbarButton>
     </div>
-    <CodeMirrorWrapper text={text} mimeType={mimeType} readOnly={true} lineNumbers={true} wrapLines={true} />
+    <CodeMirrorWrapper text={text} mimeType={mimeType} readOnly={true} lineNumbers={true} wrapLines={true} onSelectionChange={onSelectionChange} />
   </div>;
 };
 

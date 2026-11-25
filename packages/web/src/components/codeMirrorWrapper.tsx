@@ -45,6 +45,7 @@ export interface SourceProps {
   focusOnChange?: boolean;
   wrapLines?: boolean;
   onChange?: (text: string) => void;
+  onSelectionChange?: (text: string) => void;
   dataTestId?: string;
   placeholder?: string;
 }
@@ -62,6 +63,7 @@ export const CodeMirrorWrapper: React.FC<SourceProps> = ({
   focusOnChange,
   wrapLines,
   onChange,
+  onSelectionChange,
   dataTestId,
   placeholder,
 }) => {
@@ -191,6 +193,15 @@ export const CodeMirrorWrapper: React.FC<SourceProps> = ({
         codemirror.off('change', changeListener);
     };
   }, [codemirror, text, highlight, revealLine, focusOnChange, onChange]);
+
+  React.useEffect(() => {
+    if (!codemirror || !onSelectionChange)
+      return;
+    const selectionListener = () => onSelectionChange(codemirror.getSelection());
+    codemirror.on('cursorActivity', selectionListener);
+    selectionListener();
+    return () => codemirror.off('cursorActivity', selectionListener);
+  }, [codemirror, onSelectionChange]);
 
   return <div data-testid={dataTestId} className='cm-wrapper' ref={codemirrorElement} onClick={onCodeMirrorClick}></div>;
 };

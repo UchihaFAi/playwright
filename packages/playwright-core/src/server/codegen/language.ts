@@ -40,8 +40,8 @@ export function sanitizeDeviceOptions(device: any, options: BrowserContextOption
 export function generateComment(text: string, prefix: string, offset: number): string {
   const indent = ' '.repeat(offset);
   return text.trim().split('\n').map(line => {
-    const trimmed = line.trim();
-    return trimmed ? `${indent}${prefix} ${trimmed}` : `${indent}${prefix}`;
+    const trimmed = line.trimEnd();
+    return trimmed.trim() ? `${indent}${prefix} ${trimmed}` : `${indent}${prefix}`;
   }).join('\n');
 }
 
